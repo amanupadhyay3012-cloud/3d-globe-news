@@ -136,7 +136,7 @@
     }
 
     #particle-canvas { z-index: 1; pointer-events: none; }
-    #three-canvas { z-index: 2; cursor: grab; }
+    #three-canvas { z-index: 2; cursor: grab; touch-action: none; }
     #three-canvas:active { cursor: grabbing; }
 
     .globe-ui {
@@ -842,12 +842,23 @@
     }
 
     @media (max-width: 720px) {
-      #topbar { gap: 8px; padding: 0 10px; }
-      .tagline { display: none; }
-      .search-wrap { width: 42vw; }
-      #country-search { height: 32px; font-size: 11px; padding-left: 12px; }
-      .mode-pill, .heatmap-pill { padding: 6px 9px; font-size: 9px; }
-      .live-badge { display: none; }
+      html, body { height: 100dvh; overscroll-behavior: none; }
+      #topbar {
+        min-height: 72px;
+        height: auto;
+        gap: 7px;
+        padding: 8px 10px;
+        flex-wrap: wrap;
+        align-content: center;
+      }
+      .logo { font-size: 18px; }
+      .tagline, .live-badge, #hand-toggle { display: none; }
+      .spacer { display: none; }
+      .search-wrap { order: 3; width: 100%; flex: 1 0 100%; }
+      #country-search { height: 38px; font-size: 13px; padding-left: 14px; }
+      #search-suggestions { max-height: 34vh; }
+      .suggestion-item { padding: 13px 12px; }
+      .mode-pill, .heatmap-pill { padding: 7px 9px; font-size: 9px; }
     }
 
 
@@ -983,6 +994,65 @@
       #app { grid-template-columns: 1fr; grid-template-rows: 56px minmax(50vh, 1fr) 46vh; }
       #globe-panel { grid-column: 1; grid-row: 2; }
       #sidebar { grid-column: 1; grid-row: 3; border-left: none; border-top: 1px solid rgba(74,158,255,.1); }
+    }
+
+    @media (max-width: 720px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 58dvh minmax(34dvh, 1fr);
+        height: 100dvh;
+      }
+
+      #globe-panel { min-height: 0; }
+      #hover-tip { top: 10px; max-width: calc(100vw - 24px); font-size: 12px; padding: 8px 14px; }
+      #globe-hint {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        transform: none;
+        text-align: center;
+        font-size: 10px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(2,10,22,.78);
+      }
+      #zoom-btns {
+        right: 10px;
+        bottom: 54px;
+        gap: 7px;
+      }
+      .zbtn { width: 44px; height: 44px; font-size: 22px; }
+      #heatmap-legend { display: none; }
+      #hand-video, #hand-status, #hand-guide { display: none !important; }
+
+      #sidebar {
+        min-height: 0;
+        border-radius: 18px 18px 0 0;
+        box-shadow: 0 -18px 50px rgba(0,0,0,.35);
+      }
+      #country-info { padding: 12px 14px 10px; }
+      #country-flag { font-size: 22px; margin-bottom: 3px; }
+      #country-name { font-size: 18px; }
+      #country-sub { font-size: 10px; }
+      #stats-row { padding: 8px 10px; }
+      .stat-box { padding: 8px 9px; }
+      .tab-btn { padding: 12px 0; font-size: 10px; }
+      #news-panel { padding: 11px; }
+      .category-filter {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 6px;
+        scrollbar-width: none;
+      }
+      .category-filter::-webkit-scrollbar { display: none; }
+      .cat-btn {
+        flex: 0 0 auto;
+        padding: 9px 12px;
+        font-size: 9px;
+      }
+      .news-card { padding: 12px; margin-bottom: 8px; }
+      .news-title { font-size: 13px; line-height: 1.45; }
+      .news-desc { font-size: 11px; line-height: 1.55; }
     }
   </style>
 </head>
@@ -1516,7 +1586,7 @@
   let prevMouse = { x: 0, y: 0 }, mouseDownPos = { x: 0, y: 0 };
   let rotVel = { x: 0, y: 0 };
   let autoRotate = true;
-  let zoomDistance = 3.0;
+  let zoomDistance = window.innerWidth <= 720 ? 3.45 : 3.0;
 
   canvas3d.addEventListener('mousedown', e => {
     isDragging = true; hasDragged = false;
@@ -1548,22 +1618,51 @@
   }, { passive: false });
 
   let touchState = null, touchMoved = false;
+  const getTouchDistance = touches => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+
   canvas3d.addEventListener('touchstart', e => {
+    e.preventDefault();
     const t = e.touches[0];
-    touchState = { x: t.clientX, y: t.clientY, rx: globeGroup.rotation.x, ry: globeGroup.rotation.y };
+    touchState = {
+      x: t.clientX,
+      y: t.clientY,
+      rx: globeGroup.rotation.x,
+      ry: globeGroup.rotation.y,
+      zoom: zoomDistance,
+      pinch: getTouchDistance(e.touches)
+    };
     touchMoved = false; autoRotate = false;
-  }, { passive: true });
+  }, { passive: false });
+
   canvas3d.addEventListener('touchmove', e => {
     if (!touchState) return;
+    e.preventDefault();
+
+    if (e.touches.length >= 2) {
+      const pinchNow = getTouchDistance(e.touches);
+      if (touchState.pinch && pinchNow) {
+        touchMoved = true;
+        const pinchDelta = touchState.pinch - pinchNow;
+        zoomDistance = Math.max(1.55, Math.min(5.2, touchState.zoom + pinchDelta * 0.008));
+      }
+      return;
+    }
+
     const t = e.touches[0], dx = t.clientX - touchState.x, dy = t.clientY - touchState.y;
     if (Math.hypot(dx, dy) > 6) touchMoved = true;
-    globeGroup.rotation.y = touchState.ry + dx * 0.008;
-    globeGroup.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, touchState.rx + dy * 0.008));
-  }, { passive: true });
+    globeGroup.rotation.y = touchState.ry + dx * 0.010;
+    globeGroup.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, touchState.rx + dy * 0.010));
+  }, { passive: false });
+
   canvas3d.addEventListener('touchend', e => {
-    if (!touchMoved && touchState) handleClick(e.changedTouches[0]);
+    if (!touchMoved && touchState && e.changedTouches && e.changedTouches[0]) handleClick(e.changedTouches[0]);
     touchState = null;
-  });
+  }, { passive: false });
 
   function zoomGlobe(delta) { zoomDistance = Math.max(1.5, Math.min(5.2, zoomDistance + delta)); }
 
@@ -3036,7 +3135,7 @@
      - If you open with VS Code Live Server on 127.0.0.1:5500, it calls your local Node backend.
      - If you deploy frontend + backend together, it calls the same live domain.
   */
-  const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') && location.port === '5500'
+  const API_BASE = (location.protocol === 'file:' || (((location.hostname === '127.0.0.1' || location.hostname === 'localhost') && location.port === '5500')))
     ? 'http://localhost:3000'
     : '';
 
@@ -3134,7 +3233,7 @@
     } catch (err) {
       document.getElementById('news-loader').style.display = 'none';
       document.getElementById('stat-stories').textContent = '!';
-      document.getElementById('news-list').innerHTML = `<div class="error-card"><div class="ec-title">⚠ Fetch failed</div><div class="ec-msg">${escapeHtml(err.message)}.<br><br>During development, run <b>node server.js</b> and open <b>http://localhost:3000</b>. If using VS Code Live Server, keep the backend running on <b>localhost:3000</b>.</div></div>`;
+      document.getElementById('news-list').innerHTML = `<div class="error-card"><div class="ec-title">⚠ News server not reachable</div><div class="ec-msg">${escapeHtml(err.message)}.<br><br>Open your project folder in terminal and run <b>npm install</b> once, then <b>npm start</b>. After that open <b>http://localhost:3000</b>. Do not open only the HTML file without the Node server.</div></div>`;
     }
   }
 
