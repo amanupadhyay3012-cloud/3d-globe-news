@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>GlobeNews — Live World Intelligence</title>
 
   <style>
@@ -1054,6 +1054,100 @@
       .news-title { font-size: 13px; line-height: 1.45; }
       .news-desc { font-size: 11px; line-height: 1.55; }
     }
+
+
+    /* ===== STRONG MOBILE FIX V2 ===== */
+    @media (max-width: 720px), (pointer: coarse) {
+      html, body {
+        width: 100%;
+        min-height: 100dvh;
+        overflow: hidden;
+        -webkit-text-size-adjust: 100%;
+        touch-action: manipulation;
+      }
+
+      #app {
+        height: 100dvh;
+        height: 100svh;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(300px, 54svh) minmax(220px, 1fr);
+      }
+
+      #topbar {
+        min-height: auto;
+        padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+        gap: 8px;
+      }
+
+      .logo { font-size: 17px; }
+      .tagline, .live-badge, #hand-toggle, .mode-pill { display: none !important; }
+      .heatmap-pill { font-size: 9px; padding: 8px 10px; }
+      .search-wrap { order: 2; width: 100%; flex: 1 0 100%; }
+      #country-search { height: 42px; border-radius: 12px; font-size: 14px; }
+
+      #globe-panel {
+        position: relative;
+        min-height: 300px;
+        max-height: 58svh;
+        overflow: hidden;
+        touch-action: none;
+      }
+
+      #three-canvas {
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      #globe-hint {
+        left: 50%;
+        right: auto;
+        bottom: 10px;
+        transform: translateX(-50%);
+        width: calc(100vw - 24px);
+        white-space: normal;
+        line-height: 1.35;
+        z-index: 40;
+      }
+
+      #zoom-btns {
+        right: 12px;
+        bottom: 64px;
+        z-index: 45;
+      }
+
+      .zbtn {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        font-size: 24px;
+      }
+
+      #sidebar {
+        min-height: 0;
+        height: auto;
+        overflow: hidden;
+        border-radius: 20px 20px 0 0;
+      }
+
+      #news-panel, #crime-panel, #culture-panel {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: none;
+        padding-bottom: calc(18px + env(safe-area-inset-bottom));
+      }
+
+      .news-card {
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 10px;
+      }
+
+      .news-title { font-size: 14px; line-height: 1.42; }
+      .news-desc { font-size: 12px; line-height: 1.55; }
+    }
+
   </style>
 </head>
 <body>
@@ -1193,6 +1287,7 @@
 
   /* ===== PARTICLES ===== */
   const globePanel = document.getElementById('globe-panel');
+  const IS_MOBILE = window.matchMedia('(max-width: 720px), (pointer: coarse)').matches;
   const particleCanvas = document.getElementById('particle-canvas');
   const pctx = particleCanvas.getContext('2d');
   let particles = [];
@@ -1277,7 +1372,7 @@
 
   const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three-canvas'), antialias: true, alpha: true });
   renderer.setSize(globePanel.clientWidth, globePanel.clientHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.25 : 2));
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.75; /* DARKER exposure */
@@ -1586,7 +1681,7 @@
   let prevMouse = { x: 0, y: 0 }, mouseDownPos = { x: 0, y: 0 };
   let rotVel = { x: 0, y: 0 };
   let autoRotate = true;
-  let zoomDistance = window.innerWidth <= 720 ? 3.45 : 3.0;
+  let zoomDistance = IS_MOBILE ? 3.25 : 3.0;
 
   canvas3d.addEventListener('mousedown', e => {
     isDragging = true; hasDragged = false;
@@ -1654,9 +1749,9 @@
     }
 
     const t = e.touches[0], dx = t.clientX - touchState.x, dy = t.clientY - touchState.y;
-    if (Math.hypot(dx, dy) > 6) touchMoved = true;
-    globeGroup.rotation.y = touchState.ry + dx * 0.010;
-    globeGroup.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, touchState.rx + dy * 0.010));
+    if (Math.hypot(dx, dy) > 10) touchMoved = true;
+    globeGroup.rotation.y = touchState.ry + dx * 0.0075;
+    globeGroup.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, touchState.rx + dy * 0.0075));
   }, { passive: false });
 
   canvas3d.addEventListener('touchend', e => {
@@ -2813,6 +2908,21 @@
     return best;
   }
 
+  function nearestCountryToPoint(worldPoint) {
+    const { lat, lon } = worldToLatLon(worldPoint);
+    let best = null;
+    let bestScore = Infinity;
+    for (const c of COUNTRIES) {
+      const clat = (c.la[0] + c.la[1]) / 2;
+      const clon = (c.lo[0] + c.lo[1]) / 2;
+      const dLat = lat - clat;
+      const dLon = Math.min(Math.abs(lon - clon), 360 - Math.abs(lon - clon));
+      const score = Math.sqrt(dLat * dLat + dLon * dLon);
+      if (score < bestScore) { bestScore = score; best = c; }
+    }
+    return bestScore <= (IS_MOBILE ? 22 : 10) ? best : null;
+  }
+
   function getNDCFromEvent(e) {
     const rect = canvas3d.getBoundingClientRect();
     return { x: ((e.clientX - rect.left) / rect.width) * 2 - 1, y: -((e.clientY - rect.top) / rect.height) * 2 + 1 };
@@ -2859,7 +2969,9 @@
   function handleClick(e) {
     const hits = castRay(e);
     if (!hits.length) return;
-    const country = hitToCountry(hits[0].point);
+    let country = hitToCountry(hits[0].point);
+    // Mobile taps are less precise, so select nearest country if exact polygon misses.
+    if (!country && IS_MOBILE) country = nearestCountryToPoint(hits[0].point);
     if (!country) return;
     spawnRing(e);
     loadCountry(country);
@@ -3430,6 +3542,7 @@
   window.addEventListener('resize', () => {
     camera.aspect = globePanel.clientWidth / globePanel.clientHeight;
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.25 : 2));
     renderer.setSize(globePanel.clientWidth, globePanel.clientHeight);
     resizeParticleCanvas();
     initParticles();
