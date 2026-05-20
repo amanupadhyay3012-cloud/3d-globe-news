@@ -1214,6 +1214,167 @@
       }
     }
 
+
+    /* ===== ANDROID MOBILE SCROLL FIX V4 ===== */
+    @media (max-width: 720px), (pointer: coarse) {
+      html, body {
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        overflow: hidden !important;
+        touch-action: pan-y !important;
+      }
+
+      #app {
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+
+      #topbar {
+        flex: 0 0 auto !important;
+        position: relative !important;
+        top: auto !important;
+      }
+
+      #globe-panel {
+        flex: 0 0 48dvh !important;
+        height: 48dvh !important;
+        min-height: 285px !important;
+        max-height: 430px !important;
+        overflow: hidden !important;
+        touch-action: none !important;
+      }
+
+      #three-canvas {
+        touch-action: none !important;
+      }
+
+      #sidebar {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+        touch-action: pan-y !important;
+        padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+      }
+
+      #tabs {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 300 !important;
+        background: rgba(2, 7, 16, 0.98) !important;
+        backdrop-filter: blur(14px) !important;
+        touch-action: pan-y !important;
+      }
+
+      #tab-news, #tab-crime,
+      #news-panel, #crime-panel,
+      #news-list, #crime-content {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        touch-action: pan-y !important;
+      }
+
+      .news-card, .crime-card, .category-filter, .tab-btn {
+        touch-action: pan-y !important;
+      }
+    }
+
+
+    /* ===== MOBILE HAND CONTROL V5 ===== */
+    @media (max-width: 720px), (pointer: coarse) {
+      /* Show hand control button on phones too */
+      #hand-toggle,
+      #hand-toggle.mode-pill,
+      .hand-toggle-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        order: 1 !important;
+        padding: 8px 9px !important;
+        font-size: 9px !important;
+        min-height: 34px !important;
+        max-width: 112px !important;
+        white-space: nowrap !important;
+      }
+
+      /* Keep video/status visible only after hand mode is turned on */
+      #hand-video {
+        display: block !important;
+        position: fixed !important;
+        left: 10px !important;
+        bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+        width: 112px !important;
+        height: 84px !important;
+        border-radius: 12px !important;
+        z-index: 999 !important;
+        transform: scaleX(-1) !important;
+        pointer-events: none !important;
+      }
+
+      #hand-video:not(.active) {
+        opacity: 0 !important;
+        visibility: hidden !important;
+      }
+
+      #hand-video.active {
+        opacity: 0.82 !important;
+        visibility: visible !important;
+      }
+
+      #hand-status {
+        display: flex !important;
+        position: fixed !important;
+        left: 10px !important;
+        bottom: calc(180px + env(safe-area-inset-bottom)) !important;
+        width: auto !important;
+        max-width: 190px !important;
+        padding: 7px 9px !important;
+        font-size: 9px !important;
+        z-index: 1000 !important;
+        pointer-events: none !important;
+      }
+
+      #hand-status:not(.active) {
+        opacity: 0 !important;
+        visibility: hidden !important;
+      }
+
+      #hand-status.active {
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+
+      #hand-guide {
+        display: block !important;
+        position: fixed !important;
+        left: 130px !important;
+        bottom: calc(98px + env(safe-area-inset-bottom)) !important;
+        width: 145px !important;
+        padding: 8px 9px !important;
+        font-size: 9px !important;
+        z-index: 999 !important;
+        pointer-events: none !important;
+      }
+
+      #hand-guide:not(.active) {
+        opacity: 0 !important;
+        visibility: hidden !important;
+      }
+
+      #hand-guide.active {
+        opacity: 0.92 !important;
+        visibility: visible !important;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1872,9 +2033,9 @@
 
     handsDetector.setOptions({
       maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.72,
-      minTrackingConfidence: 0.72
+      modelComplexity: IS_MOBILE ? 0 : 1,
+      minDetectionConfidence: IS_MOBILE ? 0.62 : 0.72,
+      minTrackingConfidence: IS_MOBILE ? 0.62 : 0.72
     });
 
     handsDetector.onResults(onHandResults);
@@ -1885,8 +2046,8 @@
           await handsDetector.send({ image: handVideo });
         }
       },
-      width: 640,
-      height: 480
+      width: IS_MOBILE ? 320 : 640,
+      height: IS_MOBILE ? 240 : 480
     });
   }
 
@@ -3621,6 +3782,35 @@
     resizeParticleCanvas();
     initParticles();
   });
+
+  /* ===== ANDROID TAB + SIDEBAR SCROLL FIX V4 ===== */
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.getElementById('tab-news').classList.toggle('active', tab === 'news');
+    document.getElementById('tab-crime').classList.toggle('active', tab === 'crime');
+
+    if (window.matchMedia('(max-width: 720px), (pointer: coarse)').matches) {
+      setTimeout(() => {
+        const sidebar = document.getElementById('sidebar');
+        const tabs = document.getElementById('tabs');
+        if (sidebar && tabs) {
+          sidebar.scrollTo({ top: Math.max(0, tabs.offsetTop - 4), behavior: 'smooth' });
+        }
+      }, 60);
+    }
+  }
+
+  // Some Android browsers ignore normal body scrolling when a WebGL canvas is present.
+  // This makes the sidebar itself the scroll area, while keeping globe drag working.
+  if (/Android/i.test(navigator.userAgent)) {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.addEventListener('touchmove', function(e) {
+        e.stopPropagation();
+      }, { passive: true });
+    }
+  }
+
 </script>
 </body>
 </html>
